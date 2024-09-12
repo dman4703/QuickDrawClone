@@ -29,7 +29,7 @@
             <div class="col-md-6">
                 <h3>Can a machine learning model guess what you are drawing?</h3>
                 <br><br>
-                <h4>Draw:</h4>
+                <h4>Draw: <span id="drawingPrompt"></span></h4> <!-- Prompt for the drawing -->
                 <br><br>
                 <h4 id="guessText">DoodleVision's guess: <span id="prediction">...</span></h4>
             </div>
@@ -44,6 +44,11 @@
         const canvas = document.getElementById('drawingCanvas');
         const ctx = canvas.getContext('2d');
         let drawing = false;
+
+        // Drawing prompt options (modify as per your needs)
+        const prompts = ["cat", "house", "tree", "car", "apple"];
+        const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+        document.getElementById('drawingPrompt').innerText = randomPrompt;
 
         // Set canvas properties
         ctx.strokeStyle = '#000';
@@ -71,6 +76,7 @@
 
         function stopDrawing() {
             drawing = false;
+            sendDrawing(); // Send the drawing to the backend for prediction
         }
 
         // Clear the canvas
@@ -86,6 +92,23 @@
                 x: evt.clientX - rect.left,
                 y: evt.clientY - rect.top
             };
+        }
+
+        // Convert canvas drawing to base64 and send to the backend for prediction
+        function sendDrawing() {
+            const dataURL = canvas.toDataURL('image/png');
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ image: dataURL }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('prediction').innerText = data.prediction; // Display the prediction
+            })
+            .catch(error => console.error('Error:', error));
         }
 
     </script>

@@ -1,5 +1,7 @@
+import cv2
 import tensorflow as tf
 import numpy as np
+
 
 # Load a pre-trained model
 model = tf.keras.applications.mobilenet_v2.MobileNetV2(weights='imagenet')
