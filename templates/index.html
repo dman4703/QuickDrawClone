@@ -1,63 +1,94 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quick, Draw! Clone</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <title>DoodleVision</title>
+
 </head>
+
 <body>
-    <h1>Quick, Draw! Clone</h1>
-    <canvas id="drawingCanvas" width="400" height="400"></canvas>
-    <button id="clearButton">Clear</button>
-    <p>Prediction: <span id="prediction"></span></p>
+    <div class="container-fluid">
+        <nav class="navbar navbar-dark">
+            <a class="navbar-brand" href="#">DoodleVision</a>
+        </nav>
+
+        <div class="row mt-4">
+            <div class="col-md-6 text-center">
+                <canvas id="drawingCanvas" width="500" height="400"></canvas>
+                <br>
+                <button id="clearButton" class="btn btn-danger mt-3">Clear Canvas</button>
+            </div>
+
+            <div class="col-md-6">
+                <h3>Can a machine learning model guess what you are drawing?</h3>
+                <br><br>
+                <h4>Draw:</h4>
+                <br><br>
+                <h4 id="guessText">DoodleVision's guess: <span id="prediction">...</span></h4>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         const canvas = document.getElementById('drawingCanvas');
         const ctx = canvas.getContext('2d');
         let drawing = false;
 
+        // Set canvas properties
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+
+        // Start drawing
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', draw);
         canvas.addEventListener('mouseup', stopDrawing);
-        document.getElementById('clearButton').addEventListener('click', clearCanvas);
+        canvas.addEventListener('mouseout', stopDrawing);
 
         function startDrawing(e) {
             drawing = true;
             ctx.beginPath();
-            ctx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+            ctx.moveTo(getMousePos(canvas, e).x, getMousePos(canvas, e).y);
         }
 
         function draw(e) {
             if (!drawing) return;
-            ctx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+            const pos = getMousePos(canvas, e);
+            ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
         }
 
         function stopDrawing() {
             drawing = false;
-            sendDrawing();
         }
 
-        function clearCanvas() {
+        // Clear the canvas
+        document.getElementById('clearButton').addEventListener('click', function () {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('prediction').innerText = '';
+            document.getElementById('prediction').innerText = '...';
+        });
+
+        // Get the mouse position relative to the canvas
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
         }
 
-        function sendDrawing() {
-            const dataURL = canvas.toDataURL('image/png');
-            fetch('/predict', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ image: dataURL }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('prediction').innerText = data.prediction;
-            });
-        }
     </script>
 </body>
+
 </html>
