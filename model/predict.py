@@ -1,7 +1,7 @@
 import cv2
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.models import load_model
+# from tensorflow.keras.models import load_model
 import os
 
 # List of classes (should be the same as in model_training.py)
@@ -10,7 +10,7 @@ classes = ['cat', 'dog', 'apple', 'banana', 'car', 'airplane', 'alarm clock', 'b
 
 # Load the pre-trained model
 model_path = os.path.join(os.path.dirname(__file__), 'DoodleVision.keras')
-model = (model_path)
+model = tf.keras.models.load_model(model_path)
 
 def preprocess_image(image):
     # Convert image to grayscale if it's not already
@@ -32,7 +32,7 @@ def predict_drawing(image):
     predictions = model.predict(processed_image)
     predicted_class_index = np.argmax(predictions, axis=1)[0]
     predicted_class = classes[predicted_class_index]
-    confidence = predictions[0][predicted_class_index]
+    confidence = float(predictions[0][predicted_class_index])  # Convert to native float
     return predicted_class, confidence
 
 if __name__ == "__main__":
