@@ -21,9 +21,11 @@
 
         <div class="row mt-4">
             <div class="col-md-6 text-center">
-                <canvas id="drawingCanvas" width="500" height="400"></canvas>
+                <canvas id="drawingCanvas" width="500" height="400" style="border: 1px solid #000;"></canvas>
                 <br>
                 <button id="clearButton" class="btn btn-danger mt-3">Clear Canvas</button>
+                <button id="startButton" class="btn btn-success mt-3">Start</button>
+                <p id="timerDisplay" class="mt-3">Time Left: 20s</p>
             </div>
 
             <div class="col-md-6">
@@ -44,10 +46,14 @@
         const canvas = document.getElementById('drawingCanvas');
         const ctx = canvas.getContext('2d');
         let drawing = false;
+        let timer;
+        let timeLeft = 20;
+        let gameActive = false;
 
-        // Drawing prompt options (modify as per your needs)
-        const prompts = ["cat", "house", "tree", "car", "apple"];
-        const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+        // Drawing prompt options
+        const prompts = ['cat', 'dog', 'apple', 'banana', 'car', 'airplane', 'alarm clock', 'bathtub', 'bed', 'door',
+           'dishwasher', 'helicopter', 'headphones', 'fence', 'garden hose', 'microwave', 'pizza', 'sun', 'whale'];
+        let randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
         document.getElementById('drawingPrompt').innerText = randomPrompt;
 
         // Set canvas properties
@@ -62,13 +68,14 @@
         canvas.addEventListener('mouseout', stopDrawing);
 
         function startDrawing(e) {
+            if (!gameActive) return; // Prevent drawing if the game hasn't started
             drawing = true;
             ctx.beginPath();
             ctx.moveTo(getMousePos(canvas, e).x, getMousePos(canvas, e).y);
         }
 
         function draw(e) {
-            if (!drawing) return;
+            if (!drawing || !gameActive) return;
             const pos = getMousePos(canvas, e);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
@@ -76,14 +83,52 @@
 
         function stopDrawing() {
             drawing = false;
-            sendDrawing(); // Send the drawing to the backend for prediction
+            if (!isCanvasBlank(canvas)) {
+                sendDrawing(); // Send the drawing to the backend for prediction
+            }
         }
 
         // Clear the canvas
         document.getElementById('clearButton').addEventListener('click', function () {
+            clearCanvas();
+        });
+
+        function clearCanvas() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             document.getElementById('prediction').innerText = '...';
+        }
+
+        // Start button logic
+        document.getElementById('startButton').addEventListener('click', function () {
+            if (!gameActive) {
+                startGame();
+            }
         });
+
+        function startGame() {
+            gameActive = true;
+            timeLeft = 20; // Reset the timer
+            document.getElementById('timerDisplay').innerText = `Time Left: ${timeLeft}s`;
+            randomPrompt = prompts[Math.floor(Math.random() * prompts.length)]; // Pick a new drawing prompt
+            document.getElementById('drawingPrompt').innerText = randomPrompt;
+
+            // Start countdown timer
+            timer = setInterval(function () {
+                timeLeft--;
+                document.getElementById('timerDisplay').innerText = `Time Left: ${timeLeft}s`;
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timer);
+            gameActive = false;
+            clearCanvas(); // Reset the canvas
+            document.getElementById('timerDisplay').innerText = 'Time is up!';
+        }
 
         // Get the mouse position relative to the canvas
         function getMousePos(canvas, evt) {
@@ -109,6 +154,14 @@
                 document.getElementById('prediction').innerText = data.prediction; // Display the prediction
             })
             .catch(error => console.error('Error:', error));
+        }
+
+        // Check if canvas is blank
+        function isCanvasBlank(canvas) {
+            const blank = document.createElement('canvas');
+            blank.width = canvas.width;
+            blank.height = canvas.height;
+            return canvas.toDataURL() === blank.toDataURL();
         }
 
     </script>
