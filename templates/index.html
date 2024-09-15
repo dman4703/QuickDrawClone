@@ -34,6 +34,7 @@
                 <h4>Draw: <span id="drawingPrompt"></span></h4> <!-- Prompt for the drawing -->
                 <br><br>
                 <h4 id="guessText">DoodleVision's guess: <span id="prediction">...</span></h4>
+                <h4 id="result"></h4>
             </div>
         </div>
     </div>
@@ -43,128 +44,200 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        const canvas = document.getElementById('drawingCanvas');
-        const ctx = canvas.getContext('2d');
-        let drawing = false;
-        let timer;
-        let timeLeft = 20;
-        let gameActive = false;
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+    let timer;
+    let timeLeft = 20;
+    let gameActive = false;
+    let gameEnded = false;
 
-        // Drawing prompt options
-        const prompts = ['cat', 'dog', 'apple', 'banana', 'car', 'airplane', 'alarm clock', 'bathtub', 'bed', 'door',
-           'dishwasher', 'helicopter', 'headphones', 'fence', 'garden hose', 'microwave', 'pizza', 'sun', 'whale'];
-        let randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+    // Drawing prompt options
+    const prompts = ['cat', 'dog', 'apple', 'car', 'airplane', 'alarm clock', 'bathtub', 'bed', 'door',
+       'dishwasher', 'helicopter', 'headphones', 'fence', 'garden hose', 'microwave', 'pizza', 'sun', 'whale'];
+    let randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+    document.getElementById('drawingPrompt').innerText = randomPrompt;
+
+    // Set canvas properties
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+
+    // Array to store drawing commands for SVG
+    let drawingCommands = [];
+
+    // Start drawing
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    function startDrawing(e) {
+        if (!gameActive || gameEnded) return;
+        drawing = true;
+        ctx.beginPath();
+        const pos = getMousePos(canvas, e);
+        ctx.moveTo(pos.x, pos.y);
+        drawingCommands.push({ command: 'M', x: pos.x, y: pos.y });
+    }
+
+    function draw(e) {
+        if (!drawing || !gameActive || gameEnded) return;
+        const pos = getMousePos(canvas, e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        drawingCommands.push({ command: 'L', x: pos.x, y: pos.y });
+    }
+
+    function stopDrawing() {
+        drawing = false;
+        if (!isCanvasBlank(canvas) && gameActive && !gameEnded) {
+            sendDrawing(); // Send the drawing to the backend for prediction
+        }
+    }
+
+    // Clear the canvas
+    document.getElementById('clearButton').addEventListener('click', function () {
+        clearCanvas();
+    });
+
+    function clearCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawingCommands = []; // Clear the drawing commands
+        document.getElementById('prediction').innerText = '...';
+        document.getElementById('result').innerText = '';
+    }
+
+    // Start button logic
+    document.getElementById('startButton').addEventListener('click', function () {
+        if (!gameActive) {
+            startGame();
+        }
+    });
+
+    function startGame() {
+        gameActive = true;
+        gameEnded = false;
+        timeLeft = 20; // Reset the timer
+        document.getElementById('timerDisplay').innerText = `Time Left: ${timeLeft}s`;
+        randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
         document.getElementById('drawingPrompt').innerText = randomPrompt;
+        clearCanvas(); // Clear canvas at the start of a new game
 
-        // Set canvas properties
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-
-        // Start drawing
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
-
-        function startDrawing(e) {
-            if (!gameActive) return; // Prevent drawing if the game hasn't started
-            drawing = true;
-            ctx.beginPath();
-            ctx.moveTo(getMousePos(canvas, e).x, getMousePos(canvas, e).y);
-        }
-
-        function draw(e) {
-            if (!drawing || !gameActive) return;
-            const pos = getMousePos(canvas, e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-        }
-
-        function stopDrawing() {
-            drawing = false;
-            if (!isCanvasBlank(canvas)) {
-                sendDrawing(); // Send the drawing to the backend for prediction
-            }
-        }
-
-        // Clear the canvas
-        document.getElementById('clearButton').addEventListener('click', function () {
-            clearCanvas();
-        });
-
-        function clearCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('prediction').innerText = '...';
-        }
-
-        // Start button logic
-        document.getElementById('startButton').addEventListener('click', function () {
-            if (!gameActive) {
-                startGame();
-            }
-        });
-
-        function startGame() {
-            gameActive = true;
-            timeLeft = 20; // Reset the timer
+        // Start countdown timer
+        timer = setInterval(function () {
+            timeLeft--;
             document.getElementById('timerDisplay').innerText = `Time Left: ${timeLeft}s`;
-            randomPrompt = prompts[Math.floor(Math.random() * prompts.length)]; // Pick a new drawing prompt
-            document.getElementById('drawingPrompt').innerText = randomPrompt;
 
-            // Start countdown timer
-            timer = setInterval(function () {
-                timeLeft--;
-                document.getElementById('timerDisplay').innerText = `Time Left: ${timeLeft}s`;
+            if (timeLeft <= 0) {
+                endGame(false); // Time's up, didn't guess correctly
+            }
+        }, 1000);
+    }
 
-                if (timeLeft <= 0) {
-                    endGame();
-                }
-            }, 1000);
+    function endGame(guessedCorrectly) {
+        clearInterval(timer);
+        gameActive = false;
+        gameEnded = true;
+
+        if (guessedCorrectly) {
+            document.getElementById('result').innerText = 'Correct Guess!';
+        } else {
+            document.getElementById('result').innerText = 'Could not guess.';
         }
 
-        function endGame() {
-            clearInterval(timer);
-            gameActive = false;
-            clearCanvas(); // Reset the canvas
-            document.getElementById('timerDisplay').innerText = 'Time is up!';
-        }
+        // Send the final data for retraining
+        sendDataForRetraining();
+    }
 
-        // Get the mouse position relative to the canvas
-        function getMousePos(canvas, evt) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: evt.clientX - rect.left,
-                y: evt.clientY - rect.top
-            };
-        }
+    // Get the mouse position relative to the canvas
+    function getMousePos(canvas, evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left,
+            y: evt.clientY - rect.top
+        };
+    }
 
-        // Convert canvas drawing to base64 and send to the backend for prediction
-        function sendDrawing() {
-            const dataURL = canvas.toDataURL('image/png');
-            fetch('/predict', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ image: dataURL }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('prediction').innerText = data.prediction; // Display the prediction
-            })
-            .catch(error => console.error('Error:', error));
+    // Convert drawing commands to SVG and send to the backend for prediction
+    function sendDrawing() {
+    const svgData = getSVGData();
+    fetch('/predict', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ svg: svgData }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error from backend:', data.error);
+            document.getElementById('prediction').innerText = 'Error';
+        } else if (data.prediction && data.confidence) {
+            document.getElementById('prediction').innerText = data.prediction; // Display the prediction
+            // Check if the prediction matches the prompt
+            if (data.prediction.toLowerCase() === randomPrompt.toLowerCase()) {
+                endGame(true); // Correct guess
+            }
+        } else {
+            document.getElementById('prediction').innerText = 'No valid prediction';
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('prediction').innerText = 'Error';
+    });
+}
 
-        // Check if canvas is blank
-        function isCanvasBlank(canvas) {
-            const blank = document.createElement('canvas');
-            blank.width = canvas.width;
-            blank.height = canvas.height;
-            return canvas.toDataURL() === blank.toDataURL();
+
+    // Send data for retraining
+    // Send data for retraining
+function sendDataForRetraining() {
+    const svgData = getSVGData();
+    fetch('/retrain', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ svg: svgData, label: randomPrompt }),  // Send SVG and label
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error:', data.error);
+        } else {
+            console.log('Data sent for retraining:', data.status);
         }
+    })
+    .catch(error => console.error('Error:', error));
+}
 
-    </script>
+
+    // Generate SVG data from drawing commands
+    function getSVGData() {
+        if (drawingCommands.length === 0) return '';
+        const pathData = drawingCommands.map(cmd => `${cmd.command}${cmd.x},${cmd.y}`).join(' ');
+        const svgWidth = canvas.width;
+        const svgHeight = canvas.height;
+
+        const svgContent = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
+                <path d="${pathData}" stroke="black" fill="none" stroke-width="${ctx.lineWidth}" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        `;
+        return svgContent;
+    }
+
+    // Check if canvas is blank
+    function isCanvasBlank(canvas) {
+        const blank = document.createElement('canvas');
+        blank.width = canvas.width;
+        blank.height = canvas.height;
+        return canvas.toDataURL() === blank.toDataURL();
+    }
+</script>
+
 </body>
 
 </html>
